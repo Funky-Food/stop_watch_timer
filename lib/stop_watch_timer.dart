@@ -74,17 +74,17 @@ class StopWatchTimer {
         BehaviorSubject<int>.seeded(getRawMinute(presetMillisecond));
 
     _elapsedTime.listen((value) {
-      _rawTimeController.add(value);
+      _rawTimeController.addSafely(value);
       onChange?.call(value);
       final latestSecond = getRawSecond(value);
       if (_second != latestSecond) {
-        _secondTimeController.add(latestSecond);
+        _secondTimeController.addSafely(latestSecond);
         _second = latestSecond;
         onChangeRawSecond?.call(latestSecond);
       }
       final latestMinute = getRawMinute(value);
       if (_minute != latestMinute) {
-        _minuteTimeController.add(latestMinute);
+        _minuteTimeController.addSafely(latestMinute);
         _minute = latestMinute;
         onChangeRawMinute?.call(latestMinute);
       }
@@ -322,7 +322,7 @@ class StopWatchTimer {
         }
         break;
     }
-    _elapsedTime.add(
+    _elapsedTime.addSafely(
       mode == StopWatchMode.countUp ? _getCountUpTime() : _getCountDownTime(),
     );
   }
@@ -331,10 +331,10 @@ class StopWatchTimer {
     _presetTime = _initialPresetTime;
     switch (mode) {
       case StopWatchMode.countUp:
-        _elapsedTime.add(_getCountUpTime());
+        _elapsedTime.addSafely(_getCountUpTime());
         break;
       case StopWatchMode.countDown:
-        _elapsedTime.add(_getCountDownTime());
+        _elapsedTime.addSafely(_getCountDownTime());
         break;
     }
   }
@@ -342,14 +342,14 @@ class StopWatchTimer {
   void _handle(Timer timer) {
     switch (mode) {
       case StopWatchMode.countUp:
-        _elapsedTime.add(_getCountUpTime());
+        _elapsedTime.addSafely(_getCountUpTime());
         break;
       case StopWatchMode.countDown:
         final time = _getCountDownTime();
-        _elapsedTime.add(time);
+        _elapsedTime.addSafely(time);
         if (time == 0) {
           _stop();
-          _onEndedController.add(true);
+          _onEndedController.addSafely(true);
           onEnded?.call();
         }
         break;
@@ -383,7 +383,7 @@ class StopWatchTimer {
     _timer = null;
     _previousTotalSessionTime +=
         DateTime.now().millisecondsSinceEpoch - _currentSessionStartTime;
-    _onStoppedController.add(true);
+    _onStoppedController.addSafely(true);
     onStopped?.call();
     return true;
   }
@@ -394,21 +394,17 @@ class StopWatchTimer {
       _timer = null;
     }
     if (isRunning && _currentSessionStartTime > 0) {
-      _onStoppedController.add(true);
+      _onStoppedController.addSafely(true);
       onStopped?.call();
-      _onEndedController.add(true);
+      _onEndedController.addSafely(true);
       onEnded?.call();
     }
 
     _currentSessionStartTime = 0;
     _previousTotalSessionTime = 0;
     _records = [];
-    if (!_recordsController.isClosed) {
-      _recordsController.add(_records);
-    }
-    if (!_elapsedTime.isClosed) {
-      _elapsedTime.add(_presetTime);
-    }
+    _recordsController.addSafely(_records);
+    _elapsedTime.addSafely(_presetTime);
   }
 
   void _lap() {
@@ -423,7 +419,23 @@ class StopWatchTimer {
           displayTime: getDisplayTime(rawValue, hours: isLapHours),
         ),
       );
-      _recordsController.add(_records);
+      _recordsController.addSafely(_records);
+    }
+  }
+}
+
+extension BehaviorSubjectExtension<T> on BehaviorSubject<T> {
+  void addSafely(T value) {
+    if (!isClosed) {
+      add(value);
+    }
+  }
+}
+
+extension PublishSubjectExtension<T> on PublishSubject<T> {
+  void addSafely(T value) {
+    if (!isClosed) {
+      add(value);
     }
   }
 }
